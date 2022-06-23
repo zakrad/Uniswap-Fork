@@ -43,9 +43,38 @@ contract LiquidityMigrator {
         IERC20 token0 = IERC20(pair.token0());
         IERC20 token1 = IERC20(pair.token1());
         uint totalBalance = pair.balanceOf(address(this));
-        
+        router.removeLiquidity(
+            address(token0),
+            address(token1),
+            totalBalance,
+            0,
+            0,
+            address(this),
+            block.timestamp
+        );
 
-
+        uint token0Balance = token0.balanceOf(address(this));
+        uint token1Balance = token1.balanceOf(address(this));
+        token0.approve(address(routerFork), token0Balance);
+        token1.approve(address(routerFork), token1Balance);
+        routerFork.addLiquidity(
+            address(token0),
+            address(token1),
+            token0Balance,
+            token1Balance,
+            token0Balance,
+            token1Balance,
+            address(this),
+            block.timestamp
+        );
+        migrationDone = true;
     }
-
+    
+    function claimLpTokens() external {
+        require(unclaimedBalances[msg.sender] >= 0, 'no unclaimed balance');
+        require(migrationDone == true, 'migration not done yet');
+        uint amountToSend = unclaimedBalances[msg.sender];
+        unclaimedBalances[msg.sender] = 0;
+        pairFork.transfer(msg.sender, amountToSend);
+    }
 }
